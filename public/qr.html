@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp QR Login</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f0f;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: #1a1a1a;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; }
+    .subtitle { color: #888; margin-bottom: 24px; font-size: 0.9rem; }
+    .qr-wrap {
+      width: 280px;
+      height: 280px;
+      margin: 0 auto 20px;
+      background: #fff;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .qr-wrap img { width: 100%; height: 100%; object-fit: contain; }
+    .qr-placeholder {
+      color: #333;
+      font-size: 0.85rem;
+    }
+    .status {
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+      min-height: 1.4em;
+    }
+    .status.connected { color: #4ade80; }
+    .status.waiting { color: #fbbf24; }
+    .status.error { color: #f87171; }
+    .btn {
+      background: #25d366;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn.secondary {
+      background: #333;
+      color: #fff;
+      margin-left: 8px;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #333;
+      border-top-color: #25d366;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>WhatsApp Login</h1>
+    <div class="subtitle">Scan the QR code with WhatsApp on your phone</div>
+
+    <div class="qr-wrap" id="qrWrap">
+      <div class="qr-placeholder" id="qrPlaceholder">
+        <div class="spinner"></div>
+        <div style="margin-top:12px">Waiting for QR code...</div>
+      </div>
+      <img id="qrImg" class="hidden" alt="QR Code" />
+    </div>
+
+    <div class="status waiting" id="status">Waiting for connection...</div>
+
+    <div>
+      <button class="btn" id="clearBtn">Clear Session</button>
+    </div>
+  </div>
+
+  <script>
+    const qrWrap = document.getElementById('qrWrap');
+    const qrImg = document.getElementById('qrImg');
+    const qrPlaceholder = document.getElementById('qrPlaceholder');
+    const statusEl = document.getElementById('status');
+    const clearBtn = document.getElementById('clearBtn');
+
+    let pollTimer = null;
+
+    async function poll() {
+      try {
+        const res = await fetch('/api/wa/status');
+        const data = await res.json();
+
+        if (data.connected) {
+          statusEl.textContent = `Connected as ${data.user?.name || 'WhatsApp'}`;
+          statusEl.className = 'status connected';
+          qrImg.classList.add('hidden');
+          qrPlaceholder.classList.remove('hidden');
+          qrPlaceholder.innerHTML = '<div style="color:#4ade80;font-size:3rem">✓</div><div style="margin-top:8px;color:#333">Connected</div>';
+          clearTimeout(pollTimer);
+          setTimeout(() => {
+            window.location.href = '/index.html';
+          }, 1500);
+          return;
+        }
+
+        if (data.qrReady) {
+          statusEl.textContent = 'Scan QR code to connect';
+          statusEl.className = 'status waiting';
+          qrPlaceholder.classList.add('hidden');
+          qrImg.classList.remove('hidden');
+          qrImg.src = `/api/wa/qr.png?t=${Date.now()}`;
+        } else {
+          statusEl.textContent = 'Generating QR code...';
+          statusEl.className = 'status waiting';
+          qrImg.classList.add('hidden');
+          qrPlaceholder.classList.remove('hidden');
+        }
+      } catch (e) {
+        statusEl.textContent = 'Connection error — retrying...';
+        statusEl.className = 'status error';
+      }
+
+      pollTimer = setTimeout(poll, 3000);
+    }
+
+    clearBtn.addEventListener('click', async () => {
+      clearBtn.disabled = true;
+      clearBtn.textContent = 'Clearing...';
+      try {
+        await fetch('/api/wa/clear', { method: 'POST' });
+        statusEl.textContent = 'Session cleared. New QR coming...';
+        qrImg.classList.add('hidden');
+        qrPlaceholder.classList.remove('hidden');
+        qrPlaceholder.innerHTML = '<div class="spinner"></div><div style="margin-top:12px">Generating fresh QR...</div>';
+      } catch (e) {
+        statusEl.textContent = 'Failed to clear session';
+      }
+      clearBtn.disabled = false;
+      clearBtn.textContent = 'Clear Session';
+    });
+
+    poll();
+  </script>
+</body>
+</html>

@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, proxy-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>WhatsApp Group Admin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f0f;
+      color: #e5e5e5;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 960px; margin: 0 auto; }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    h1 { font-size: 1.4rem; color: #fff; }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .status-pill.connected { background: rgba(37,211,102,0.15); color: #25d366; }
+    .status-pill.disconnected { background: rgba(248,113,113,0.15); color: #f87171; }
+    .btn {
+      background: #25d366;
+      color: #000;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn.danger { background: #ef4444; color: #fff; }
+    .btn.secondary { background: #333; color: #fff; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .card {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card-title { font-size: 1rem; margin-bottom: 12px; color: #fff; }
+
+    .group-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .group-card {
+      background: #252525;
+      border-radius: 10px;
+      padding: 16px;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+      border: 1px solid transparent;
+    }
+    .group-card:hover { background: #2e2e2e; transform: translateY(-2px); }
+    .group-card.active { border-color: #25d366; }
+    .group-name { font-weight: 600; color: #fff; margin-bottom: 4px; }
+    .group-meta { font-size: 0.8rem; color: #888; }
+    .admin-badge {
+      display: inline-block;
+      background: rgba(37,211,102,0.2);
+      color: #25d366;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 6px;
+      font-weight: 700;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    input[type="text"], textarea {
+      background: #252525;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      flex: 1;
+      font-family: inherit;
+    }
+    textarea { width: 100%; min-height: 120px; resize: vertical; }
+    input[type="text"]::placeholder, textarea::placeholder { color: #666; }
+
+    .tab-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 8px;
+    }
+    .tab-btn {
+      background: transparent;
+      color: #888;
+      border: none;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .tab-btn:hover { color: #fff; }
+    .tab-btn.active { background: #252525; color: #25d366; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    th { color: #888; font-weight: 500; font-size: 0.8rem; text-transform: uppercase; }
+    td { color: #e5e5e5; }
+    tr:hover td { background: #252525; }
+    .phone { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.85rem; color: #aaa; }
+    .empty { text-align: center; color: #666; padding: 32px; }
+
+    .found-badge { color: #4ade80; font-weight: 700; font-size: 0.85rem; }
+    .notfound-badge { color: #f87171; font-size: 0.85rem; }
+    .summary-bar {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+    }
+    .summary-item { color: #888; }
+    .summary-item span { font-weight: 700; color: #fff; }
+
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; }
+    .modal {
+      background: #1a1a1a; border-radius: 12px; padding: 24px; max-width: 360px; width: 90%;
+      text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    .modal h3 { margin-bottom: 8px; color: #fff; }
+    .modal p { color: #aaa; margin-bottom: 20px; font-size: 0.9rem; }
+    .modal-actions { display: flex; gap: 10px; justify-content: center; }
+
+    .toast {
+      position: fixed; bottom: 20px; right: 20px;
+      background: #1a1a1a; color: #fff; padding: 12px 18px;
+      border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      transform: translateY(20px); opacity: 0; transition: all 0.3s;
+      z-index: 101; font-size: 0.9rem;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { border-left: 4px solid #25d366; }
+    .toast.error { border-left: 4px solid #ef4444; }
+
+    .spinner {
+      width: 24px; height: 24px;
+      border: 2px solid #333; border-top-color: #25d366;
+      border-radius: 50%; animation: spin 1s linear infinite;
+      display: inline-block; vertical-align: middle; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+    .muted { color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>WhatsApp Group Admin</h1>
+        <div id="connStatus" class="status-pill disconnected">
+          <span>●</span> <span id="connText">Checking...</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn secondary" id="logoutBtn">Logout</button>
+      </div>
+    </header>
+
+    <div id="notConnected" class="card hidden">
+      <p class="muted">Not connected to WhatsApp.</p>
+      <button class="btn" onclick="location.href='/qr.html'">Go to QR Login</button>
+    </div>
+
+    <div id="main">
+      <div class="card">
+        <div class="card-title">Select a Group</div>
+        <div id="groupsLoading"><span class="spinner"></span> Loading groups...</div>
+        <div id="groupsGrid" class="group-grid hidden"></div>
+        <div id="groupsEmpty" class="empty hidden">No groups found where you're an admin.</div>
+      </div>
+
+      <div id="membersCard" class="card hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div class="card-title" id="groupTitle">Members</div>
+          <div class="toolbar">
+            <input type="text" id="searchInput" placeholder="Search by name or phone..." />
+            <button class="btn secondary" id="refreshBtn">Refresh</button>
+          </div>
+        </div>
+
+        <div class="tab-bar">
+          <button class="tab-btn active" id="tabAll">All Members</button>
+          <button class="tab-btn" id="tabBulk">Number List Filter</button>
+          <button class="tab-btn" id="tabIb">IB Client Match</button>
+        </div>
+
+        <!-- All Members Tab -->
+        <div id="allMembersPanel">
+          <div id="membersTableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Role</th>
+                  <th style="text-align:right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="membersBody"></tbody>
+            </table>
+          </div>
+          <div id="membersEmpty" class="empty hidden">No members match your search.</div>
+        </div>
+
+        <!-- Bulk List Filter Tab -->
+        <div id="bulkPanel" class="hidden">
+          <div style="margin-bottom:12px;">
+            <textarea id="bulkInput" placeholder="Paste numbers here, one per line or comma-separated...
+Example:
+7431060663
+9733308454
+8637399129"></textarea>
+          </div>
+          <div class="toolbar" style="justify-content: space-between;">
+            <button class="btn" id="findBtn">Find in Group</button>
+            <button class="btn danger hidden" id="removeSelectedBtn">Remove Selected</button>
+          </div>
+          <div id="bulkSummary" class="summary-bar hidden"></div>
+          <div id="bulkResults"></div>
+        </div>
+
+        <!-- IB Client Match Tab -->
+        <div id="ibMatchPanel" class="hidden">
+          <p style="margin-bottom:12px;font-size:0.85rem;color:#888;">Paste your full IB client number list. The tool will show group members who are NOT your clients, so you can remove them.</p>
+          <div style="margin-bottom:12px;">
+            <textarea id="ibInput" placeholder="Paste IB client numbers here, one per line or comma-separated...
+Example:
+7431060663
+9733308454
+8637399129"></textarea>
+          </div>
+          <div class="toolbar" style="justify-content: space-between;">
+            <button class="btn" id="ibMatchBtn">Find Non-IB Members</button>
+          </div>
+          <div id="ibSummary" class="summary-bar hidden"></div>
+          <div id="ibResults"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h3 id="modalTitle">Remove Member?</h3>
+      <p id="modalText">Are you sure?</p>
+      <div class="modal-actions">
+        <button class="btn secondary" id="modalCancel">Cancel</button>
+        <button class="btn danger" id="modalConfirm">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let groups = [];
+    let selectedGroupId = null;
+    let membersData = { members: [], isAdmin: false };
+    let pendingRemove = null;
+    let bulkResultsData = { found: [], notFound: [] };
+    let ibResultsData = { ibClients: [], nonIbMembers: [] };
+
+    async function api(url, opts = {}) {
+      const res = await fetch(url, opts);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      return res.json();
+    }
+
+    function showToast(msg, type = 'success') {
+      const t = $('toast');
+      t.textContent = msg;
+      t.className = `toast ${type} show`;
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    async function checkStatus() {
+      try {
+        const s = await api('/api/wa/status');
+        const pill = $('connStatus');
+        const txt = $('connText');
+        if (s.connected) {
+          pill.className = 'status-pill connected';
+          txt.textContent = s.user?.name ? `Connected as ${s.user.name}` : 'Connected';
+          $('notConnected').classList.add('hidden');
+          $('main').classList.remove('hidden');
+        } else {
+          pill.className = 'status-pill disconnected';
+          txt.textContent = 'Disconnected';
+          $('notConnected').classList.remove('hidden');
+          $('main').classList.add('hidden');
+        }
+        return s.connected;
+      } catch (e) {
+        $('connStatus').className = 'status-pill disconnected';
+        $('connText').textContent = 'Error';
+        return false;
+      }
+    }
+
+    async function loadGroups() {
+      $('groupsLoading').classList.remove('hidden');
+      $('groupsGrid').classList.add('hidden');
+      $('groupsEmpty').classList.add('hidden');
+      try {
+        groups = await api('/api/groups');
+        $('groupsLoading').classList.add('hidden');
+        if (!groups.length) {
+          $('groupsEmpty').classList.remove('hidden');
+          return;
+        }
+        renderGroups();
+        $('groupsGrid').classList.remove('hidden');
+      } catch (e) {
+        $('groupsLoading').classList.add('hidden');
+        showToast(e.message, 'error');
+      }
+    }
+
+    function renderGroups() {
+      const grid = $('groupsGrid');
+      grid.innerHTML = groups.map(g => `
+        <div class="group-card ${g.id === selectedGroupId ? 'active' : ''}" data-id="${g.id}">
+          <div class="group-name">${escapeHtml(g.name)} ${g.isAdmin ? '<span class="admin-badge">ADMIN</span>' : ''}</div>
+          <div class="group-meta">${g.participantCount} members</div>
+        </div>
+      `).join('');
+      grid.querySelectorAll('.group-card').forEach(el => {
+        el.addEventListener('click', () => selectGroup(el.dataset.id));
+      });
+    }
+
+    async function selectGroup(id) {
+      selectedGroupId = id;
+      renderGroups();
+      $('membersCard').classList.remove('hidden');
+      $('groupTitle').textContent = groups.find(g => g.id === id)?.name + ' — Members';
+      await loadMembers();
+    }
+
+    async function loadMembers() {
+      if (!selectedGroupId) return;
+      const tbody = $('membersBody');
+      tbody.innerHTML = '<tr><td colspan="4" class="empty"><span class="spinner"></span> Loading...</td></tr>';
+      try {
+        membersData = await api(`/api/groups/${encodeURIComponent(selectedGroupId)}/members`);
+        filterAndRender();
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="4" class="empty" style="color:#f87171">${escapeHtml(e.message)}</td></tr>`;
+      }
+    }
+
+    function filterAndRender() {
+      const q = $('searchInput').value.trim().toLowerCase();
+      const qDigits = q.replace(/\D/g, '');
+      const qNoLeadZero = qDigits.replace(/^0+/, '');
+      let list = membersData.members;
+      if (q) {
+        list = list.filter(m => {
+          const nameMatch = (m.name || '').toLowerCase().includes(q);
+          const phoneDigits = (m.phone || '').replace(/\D/g, '');
+          const phoneMatch = phoneDigits.includes(qDigits) || phoneDigits.includes(qNoLeadZero);
+          return nameMatch || phoneMatch;
+        });
+      }
+      const tbody = $('membersBody');
+      if (!list.length) {
+        $('membersEmpty').classList.remove('hidden');
+        $('membersTableWrap').classList.add('hidden');
+        return;
+      }
+      $('membersEmpty').classList.add('hidden');
+      $('membersTableWrap').classList.remove('hidden');
+
+      tbody.innerHTML = list.map(m => {
+        const canRemove = membersData.isAdmin && !m.isAdmin;
+        const displayName = m.name || m.phone;
+        return `
+          <tr>
+            <td>
+              <div>${escapeHtml(displayName)}</div>
+              ${m.name ? `<div class="phone" style="font-size:0.8rem;color:#888">${escapeHtml(m.phone)}</div>` : ''}
+            </td>
+            <td class="phone">${escapeHtml(m.phone)}</td>
+            <td>${m.isAdmin ? '<span class="admin-badge">ADMIN</span>' : 'Member'}</td>
+            <td style="text-align:right">
+              <button class="btn danger" style="padding:6px 12px;font-size:0.8rem;"
+                ${!canRemove ? 'disabled title="Cannot remove admin"' : ''}
+                onclick="askRemove('${m.id}', '${escapeHtml(displayName)}')">
+                Remove
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // --- Tab switching ---
+    function setActiveTab(activeId) {
+      ['tabAll','tabBulk','tabIb'].forEach(id => $(id).classList.remove('active'));
+      $(activeId).classList.add('active');
+      $('allMembersPanel').classList.toggle('hidden', activeId !== 'tabAll');
+      $('bulkPanel').classList.toggle('hidden', activeId !== 'tabBulk');
+      $('ibMatchPanel').classList.toggle('hidden', activeId !== 'tabIb');
+    }
+    $('tabAll').addEventListener('click', () => setActiveTab('tabAll'));
+    $('tabBulk').addEventListener('click', () => setActiveTab('tabBulk'));
+    $('tabIb').addEventListener('click', () => setActiveTab('tabIb'));
+
+    // --- Bulk find ---
+    $('findBtn').addEventListener('click', async () => {
+      if (!selectedGroupId) return;
+      const raw = $('bulkInput').value;
+      const lines = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+      if (!lines.length) {
+        showToast('Paste at least one number', 'error');
+        return;
+      }
+      $('findBtn').disabled = true;
+      $('findBtn').textContent = 'Finding...';
+      try {
+        const res = await api(`/api/groups/${encodeURIComponent(selectedGroupId)}/members/bulk-find`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numbers: lines })
+        });
+        bulkResultsData = res;
+        renderBulkResults();
+        showToast(`Found ${res.found?.length || 0} / ${lines.length} numbers`);
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+      $('findBtn').disabled = false;
+      $('findBtn').textContent = 'Find in Group';
+    });
+
+    function renderBulkResults() {
+      const { found = [], notFound = [] } = bulkResultsData;
+      const total = found.length + notFound.length;
+      $('bulkSummary').classList.remove('hidden');
+      $('bulkSummary').innerHTML = `
+        <div class="summary-item">Total: <span>${total}</span></div>
+        <div class="summary-item">Found: <span style="color:#4ade80">${found.length}</span></div>
+        <div class="summary-item">Not found: <span style="color:#f87171">${notFound.length}</span></div>
+      `;
+
+      const hasRemovable = found.some(f => !f.member.isAdmin);
+      $('removeSelectedBtn').classList.toggle('hidden', !hasRemovable);
+
+      let html = '';
+      if (found.length) {
+        html += `<table><thead><tr><th style="width:28px"><input type="checkbox" id="checkAllFound" ${found.every(f => !f.member.isAdmin) ? '' : ''}></th><th>Input</th><th>Name</th><th>Phone</th><th>Role</th></tr></thead><tbody>`;
+        for (const f of found) {
+          const m = f.member;
+          const canRemove = !m.isAdmin;
+          html += `<tr>
+            <td><input type="checkbox" class="found-check" data-jid="${m.id}" ${canRemove ? '' : 'disabled'}></td>
+            <td class="phone">${escapeHtml(f.query)}</td>
+            <td>${escapeHtml(m.name || m.phone)}</td>
+            <td class="phone">${escapeHtml(m.phone)}</td>
+            <td>${m.isAdmin ? '<span class="admin-badge">ADMIN</span>' : '<span class="found-badge">✓ Found</span>'}</td>
+          </tr>`;
+        }
+        html += '</tbody></table>';
+      }
+      if (notFound.length) {
+        html += `<div style="margin-top:16px;font-weight:600;color:#f87171;font-size:0.9rem;">Not Found (${notFound.length})</div>`;
+        html += `<table style="margin-top:8px"><thead><tr><th>Input</th><th>Status</th></tr></thead><tbody>`;
+        for (const nf of notFound) {
+          html += `<tr><td class="phone">${escapeHtml(nf)}</td><td class="notfound-badge">✗ Not in group</td></tr>`;
+        }
+        html += '</tbody></table>';
+      }
+      $('bulkResults').innerHTML = html;
+
+      // Check-all handler
+      const checkAll = $('checkAllFound');
+      if (checkAll) {
+        checkAll.addEventListener('change', () => {
+          document.querySelectorAll('.found-check:not(:disabled)').forEach(cb => cb.checked = checkAll.checked);
+        });
+      }
+    }
+
+    // --- IB Client Match ---
+    $('ibMatchBtn').addEventListener('click', async () => {
+      if (!selectedGroupId) return;
+      const raw = $('ibInput').value;
+      const lines = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+      if (!lines.length) {
+        showToast('Paste at least one IB client number', 'error');
+        return;
+      }
+      $('ibMatchBtn').disabled = true;
+      $('ibMatchBtn').textContent = 'Matching...';
+      try {
+        const res = await api(`/api/groups/${encodeURIComponent(selectedGroupId)}/members/ib-match`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numbers: lines })
+        });
+        ibResultsData = res;
+        renderIbResults();
+        showToast(`Found ${res.ibClients?.length || 0} IB clients, ${res.nonIbMembers?.length || 0} non-IB members`);
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+      $('ibMatchBtn').disabled = false;
+      $('ibMatchBtn').textContent = 'Find Non-IB Members';
+    });
+
+    function renderIbResults() {
+      const { ibClients = [], nonIbMembers = [] } = ibResultsData;
+      const total = ibClients.length + nonIbMembers.length;
+      $('ibSummary').classList.remove('hidden');
+      $('ibSummary').innerHTML = `
+        <div class="summary-item">Total: <span>${total}</span></div>
+        <div class="summary-item">IB Clients: <span style="color:#4ade80">${ibClients.length}</span></div>
+        <div class="summary-item">Non-IB: <span style="color:#f87171">${nonIbMembers.length}</span></div>
+      `;
+
+      let html = '';
+      if (nonIbMembers.length) {
+        html += `<div style="margin-bottom:8px;font-weight:600;color:#f87171;font-size:0.9rem;">Non-IB Members (${nonIbMembers.length}) — Not in your client list</div>`;
+        html += `<table><thead><tr><th>Name</th><th>Phone</th><th>Role</th><th style="text-align:right">Action</th></tr></thead><tbody>`;
+        for (const m of nonIbMembers) {
+          const canRemove = membersData.isAdmin && !m.isAdmin;
+          const displayName = m.name || m.phone;
+          html += `<tr>
+            <td>
+              <div>${escapeHtml(displayName)}</div>
+              ${m.name ? `<div class="phone" style="font-size:0.8rem;color:#888">${escapeHtml(m.phone)}</div>` : ''}
+            </td>
+            <td class="phone">${escapeHtml(m.phone)}</td>
+            <td>${m.isAdmin ? '<span class="admin-badge">ADMIN</span>' : 'Member'}</td>
+            <td style="text-align:right">
+              <button class="btn danger" style="padding:6px 12px;font-size:0.8rem;"
+                ${!canRemove ? 'disabled title="Cannot remove admin"' : ''}
+                onclick="askRemove('${m.id}', '${escapeHtml(displayName)}')">
+                Remove
+              </button>
+            </td>
+          </tr>`;
+        }
+        html += '</tbody></table>';
+      } else {
+        html += `<div class="empty">All group members are your IB clients 🎉</div>`;
+      }
+
+      if (ibClients.length) {
+        html += `<div style="margin-top:16px;margin-bottom:8px;font-weight:600;color:#4ade80;font-size:0.9rem;">IB Clients (${ibClients.length}) — Found in your list</div>`;
+        html += `<table><thead><tr><th>Name</th><th>Phone</th><th>Role</th></tr></thead><tbody>`;
+        for (const m of ibClients) {
+          const displayName = m.name || m.phone;
+          html += `<tr>
+            <td>
+              <div>${escapeHtml(displayName)}</div>
+              ${m.name ? `<div class="phone" style="font-size:0.8rem;color:#888">${escapeHtml(m.phone)}</div>` : ''}
+            </td>
+            <td class="phone">${escapeHtml(m.phone)}</td>
+            <td>${m.isAdmin ? '<span class="admin-badge">ADMIN</span>' : '<span class="found-badge">✓ Client</span>'}</td>
+          </tr>`;
+        }
+        html += '</tbody></table>';
+      }
+
+      $('ibResults').innerHTML = html;
+    }
+
+    // --- Bulk remove ---
+    $('removeSelectedBtn').addEventListener('click', () => {
+      const checked = Array.from(document.querySelectorAll('.found-check:checked')).map(cb => cb.dataset.jid);
+      if (!checked.length) {
+        showToast('Select at least one member', 'error');
+        return;
+      }
+      pendingRemove = checked;
+      $('modalTitle').textContent = `Remove ${checked.length} Members?`;
+      $('modalText').textContent = `Are you sure you want to remove ${checked.length} selected members from the group?`;
+      $('modal').classList.add('show');
+    });
+
+    $('modalCancel').addEventListener('click', () => {
+      $('modal').classList.remove('show');
+      pendingRemove = null;
+    });
+
+    $('modalConfirm').addEventListener('click', async () => {
+      if (!pendingRemove) return;
+      $('modal').classList.remove('show');
+
+      if (Array.isArray(pendingRemove)) {
+        // Bulk remove
+        try {
+          const res = await api(`/api/groups/${encodeURIComponent(selectedGroupId)}/members/bulk-remove`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jids: pendingRemove })
+          });
+          const ok = res.results.filter(r => r.success).length;
+          const fail = res.results.filter(r => !r.success).length;
+          showToast(`Removed ${ok} members${fail ? `, ${fail} failed` : ''}`);
+          // Refresh
+          await loadMembers();
+          $('findBtn').click();
+        } catch (e) {
+          showToast(e.message, 'error');
+        }
+      } else {
+        // Single remove
+        try {
+          await api(`/api/groups/${encodeURIComponent(selectedGroupId)}/members/${encodeURIComponent(pendingRemove)}/remove`, { method: 'POST' });
+          showToast('Member removed successfully');
+          await loadMembers();
+        } catch (e) {
+          showToast(e.message, 'error');
+        }
+      }
+      pendingRemove = null;
+    });
+
+    window.askRemove = function(jid, name) {
+      pendingRemove = jid;
+      $('modalTitle').textContent = 'Remove Member?';
+      $('modalText').textContent = `Remove ${name} from this group?`;
+      $('modal').classList.add('show');
+    };
+
+    $('searchInput').addEventListener('input', filterAndRender);
+    $('refreshBtn').addEventListener('click', loadMembers);
+    $('logoutBtn').addEventListener('click', async () => {
+      try {
+        await api('/api/wa/clear', { method: 'POST' });
+        showToast('Session cleared');
+        setTimeout(() => location.href = '/qr.html', 800);
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    async function init() {
+      const ok = await checkStatus();
+      if (ok) await loadGroups();
+    }
+
+    init();
+  </script>
+</body>
+</html>
